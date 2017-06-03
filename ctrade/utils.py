@@ -1,3 +1,38 @@
+from datetime import *
+import time
+
+def get_start_end(lag=0):
+    today = date.today()
+    end = int(time.time())
+    n_days_back = today - timedelta(days=lag)
+    start = int(time.mktime(n_days_back.timetuple()))
+    return start, end
+
+def perdelta(start, end, delta):
+    curr = start
+    while curr < end:
+        yield curr
+        curr += delta
+
+def time_ranges(lag, delta):
+    start, end = get_start_end(lag)
+    start = datetime.fromtimestamp(start)
+    end = datetime.fromtimestamp(end)
+    return perdelta(start, end, timedelta(**delta_inputs(delta)))
+
+def delta_inputs(delta):
+
+    inputs = {k: 0 for k in ['days', 'hours', 'minutes']}
+    if 'm' in delta:
+        inputs['minutes'] =  int(delta.replace('m',''))
+    if 'h' in delta:
+        inputs['hours'] = int(delta.replace('h',''))
+    if 'd' in delta:
+        inputs['hours'] = 24
+
+    return inputs
+
+
 CURRENCY_PAIRS = [
     'BTC_AMP',
     'BTC_ARDR',
@@ -90,3 +125,12 @@ CURRENCY_PAIRS = [
     'XMR_NXT',
     'XMR_ZEC'
 ]
+
+PERIODS2SEC = {
+    '5m': 300,
+    '15m': 900,
+    '30m': 1800,
+    '2h': 7200,
+    '4h': 14400,
+    '1d': 86400,
+}

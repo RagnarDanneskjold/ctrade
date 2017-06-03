@@ -1,7 +1,9 @@
+class BaseException(Exception):
+    """Basic exception for errors raised."""
 
+class CurrencyPairException(BaseException):
+    """Currency pair is not available."""
 
-class CTradeException(Exception):
-    """A base class for ctrade's exceptions."""
+class PeriodsException(BaseException):
+    """Periods is not available."""
 
-class CurrencyPairException(CTradeException):
-    """The currency pair does not exhist."""
