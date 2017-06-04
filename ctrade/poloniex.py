@@ -280,7 +280,6 @@ class Chart(object):
     def period(self):
         return {v: k for k,v in PERIODS2SEC.items()}[self._period]
 
-
     @property
     def df(self):
 

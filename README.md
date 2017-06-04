@@ -1,2 +1,2 @@
 # ctrade
-Wapper to use Poloniex API
+Python wrapper to Poloniex Rest API.
