@@ -37,8 +37,8 @@ class Credentials(object):
 
         self._service = service
         self._home = os.path.expanduser("~")
-        self._credential_dir = os.path.join(self._home, '.{}'.format(service))
-        self._config_file = os.path.join(self._credential_dir, 'credentials')
+        self._credential_dir = os.path.join(self._home, '.credentials')
+        self._config_file = os.path.join(self._credential_dir, '{}'.format(service))
         self.credentials = {}
         if not os.path.isdir(self._credential_dir):
             os.mkdir(self._credential_dir)
