@@ -291,4 +291,10 @@ class Chart(object):
         times = perdelta(self.start,
                          self.end,
                          timedelta(**delta_inputs(self.period)))
+
+        times = [i for i in times]
+        if len(times) > len(series):
+            times = times[:-1]
+        elif len(times) < len(series):
+            series = series[:-1]
         return pd.DataFrame(series, index=times)
