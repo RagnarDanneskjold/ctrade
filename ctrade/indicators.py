@@ -29,8 +29,8 @@ def ema(series, window=50, min_periods=0):
 def macd(series, fast_window=12, slow_window=26, signal_window=9):
     macd = ema(series, window=fast_window) - ema(series, window=slow_window)
     signal = ema(macd, window=signal_window)
-    return pd.DataFrame({'MACD_{}-{}'.format(fast_window, slow_window): macd, 
-                         'MACD_SIGNA_{}-{}'.format(fast_window, slow_window): signal})
+    return pd.DataFrame({'macd_{}-{}'.format(fast_window, slow_window): macd, 
+                         'macd_signal_{}-{}'.format(fast_window, slow_window): signal})
 
 
 def tag_ranges(df, column, quantiles=(0.1, 0.9)):
@@ -111,16 +111,19 @@ def atr(df, col_labels=('low', 'high', 'close'), window=14):
     return atr.to_frame('atr_{}'.format(window))
 
 
-def bbands(series, window=20, min_periods=0, stdev_multiplier=2):
+def bbands(series, window=20, min_periods=0, stdev_multiplier=2, mode='ranges'):
     middle = sma(series, window=window, min_periods=min_periods)
     std = series.rolling(window=window,
                          min_periods=min_periods).std() * stdev_multiplier
     std.iloc[0] = 0.0  # We define the std of one element to be 0
     upper = middle + std
     lower = middle - std
-    return pd.DataFrame({'bbands_lower_{}'.format(window): lower,
-                         'bbands_middle_{}'.format(window): middle,
-                         'bbands_upper_{}'.format(window): upper})
+    if mode=='ranges':
+        return pd.DataFrame({'bbands_lower_{}'.format(window): lower,
+                             'bbands_middle_{}'.format(window): middle,
+                             'bbands_upper_{}'.format(window): upper})
+    elif mode=='spread':
+        return pd.DataFrame({'bbands_{}'.format(window): (upper-lower)/middle})
 
 
 def rsi(series, window=14, min_periods=0):
@@ -177,7 +180,7 @@ def pivot(series, mode='day'):
 
     groups = x.groupby([mode])
     out = pd.DataFrame()
-    levels = ['{}_diff'.format(i) for i in p.columns ]
+    levels = ['{}_{}_diff'.format(i, mode) for i in p.columns ]
 
     for igroup, group in groups:
         ref = igroup-1
@@ -192,8 +195,26 @@ def pivot(series, mode='day'):
     return out[levels]
 
 
-def consecutive_periods(series):
-    series = series - series.shift(1)
-    y = series.apply(lambda x: 1 if x>0 else 0)
-    y = y * (y.groupby((y != y.shift()).cumsum()).cumcount() + 1)
-    return y.to_frame('conseq')
+def consecutive(series):
+    series_up = (series - series.shift(1)).copy()
+    series_down = (series.shift(1) - series).copy()
+    y_up = series_up.apply(lambda x: 1 if x>0 else 0)
+    y_up = (y_up * (y_up.groupby((y_up != y_up.shift()).cumsum()).cumcount() + 1)).to_frame('conseq_up')
+    y_down = series_down.apply(lambda x: 1 if x>0 else 0)
+    y_down = (y_down * (y_down.groupby((y_down != y_down.shift()).cumsum()).cumcount() + 1)).to_frame('conseq_down')
+    return y_up.join(y_down)
+
+
+def consecutive_periods(series, add_periods):
+    y = consecutive(series)
+    for period in add_periods:
+        resampled = series.resample(period)
+        resampled_gains = consecutive(resampled)
+        y = y.join(resampled_gains.rename(columns={'conseq_up': 'conseq_up_{}'.format(period),
+                                                   'conseq_down': 'conseq_down_{}'.format(period)}
+                                                   ), 
+                    how='left')
+        y['conseq_up_{}'.format(period)] = y['conseq_up_{}'.format(period)].fillna(method='ffill')
+        y['conseq_down_{}'.format(period)] = y['conseq_down_{}'.format(period)].fillna(method='ffill')
+
+    return y 
