@@ -29,7 +29,8 @@ def ema(series, window=50, min_periods=0):
 def macd(series, fast_window=12, slow_window=26, signal_window=9):
     macd = ema(series, window=fast_window) - ema(series, window=slow_window)
     signal = ema(macd, window=signal_window)
-    return pd.DataFrame({'MACD': macd, 'MACD_SIGNAL': signal})
+    return pd.DataFrame({'MACD_{}-{}'.format(fast_window, slow_window): macd, 
+                         'MACD_SIGNA_{}-{}'.format(fast_window, slow_window): signal})
 
 
 def tag_ranges(df, column, quantiles=(0.1, 0.9)):
@@ -74,7 +75,7 @@ def stoc(df, col_labels=('low', 'high', 'close'),
         k = sma(k, window=k_smooth)
     d = sma(k, window=d_smooth)
 
-    return pd.DataFrame({'%K': k, '%D': d})
+    return pd.DataFrame({'%K_{}'.format(window): k, '%D_{}'.format(window): d})
 
 
 def fstoc(df, col_labels=('low', 'high', 'close'),
@@ -107,7 +108,7 @@ def atr(df, col_labels=('low', 'high', 'close'), window=14):
     for i in range(window, len(atr)):
         atr[i] = (atr[i - 1] * (window - 1) + max_tr[i]) / window
 
-    return atr
+    return atr.to_frame('atr_{}'.format(window))
 
 
 def bbands(series, window=20, min_periods=0, stdev_multiplier=2):
@@ -117,19 +118,19 @@ def bbands(series, window=20, min_periods=0, stdev_multiplier=2):
     std.iloc[0] = 0.0  # We define the std of one element to be 0
     upper = middle + std
     lower = middle - std
-    return pd.DataFrame({'BBANDS_LOWER': lower,
-                         'BBANDS_MIDDLE': middle,
-                         'BBANDS_UPPER': upper})
+    return pd.DataFrame({'bbands_lower_{}'.format(window): lower,
+                         'bbands_middle_{}'.format(window): middle,
+                         'bbands_upper_{}'.format(window): upper})
 
 
 def rsi(series, window=14, min_periods=0):
     change = series.diff()
     change.iloc[0] = 0.0  # Set gain/loss of first day to zero
     # Using arithmetic mean, not exponential smoothing here
-    avg_up = (change.where(lambda x: x > 0, other=0.0)
+    avg_up = (change.where(change > 0, other=0.0)
                     .rolling(window=window, min_periods=min_periods)
                     .mean())
-    avg_down = (change.where(lambda x: x < 0, other=0.0)
+    avg_down = (change.where(change < 0, other=0.0)
                       .abs()
                       .rolling(window=window, min_periods=min_periods)
                       .mean())
@@ -139,10 +140,10 @@ def rsi(series, window=14, min_periods=0):
     if min_periods > 0:
         rsi[:min_periods-1] = np.NaN
     rsi.rename(index='RSI', inplace=True)
-    return rsi
+    return rsi.to_frame('rsi_{}'.format(window))
 
 
-def pivot(x, mode='day'):
+def get_pivot(x, mode='day'):
     if mode=='day':
         x[mode] = x.reset_index()['index'].apply(lambda x: x.dayofyear).values
         print('Calculating daily pivot levels')
@@ -166,9 +167,9 @@ def pivot(x, mode='day'):
     return reduce(lambda x,y: pd.concat([x,y], axis=1), [pivot, r1, s1, r2, s2, r3, s3] )
 
 
-def set_pivot(series, mode='day'):
+def pivot(series, mode='day'):
     x = series.to_frame('value')
-    p = pivot(x, mode)
+    p = get_pivot(x, mode)
     if mode=='week':
         x[mode] = x.reset_index()['index'].apply(lambda x: x.week).values
     elif mode=='day':
@@ -189,3 +190,10 @@ def set_pivot(series, mode='day'):
         out = pd.concat([out, group])
         
     return out[levels]
+
+
+def consecutive_periods(series):
+    series = series - series.shift(1)
+    y = series.apply(lambda x: 1 if x>0 else 0)
+    y = y * (y.groupby((y != y.shift()).cumsum()).cumcount() + 1)
+    return y.to_frame('conseq')
