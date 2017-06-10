@@ -11,8 +11,11 @@ import time
 import json
 import hmac
 import hashlib
-import logging as LOG
+import logging
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
 
 __all__ = ['Credentials',  'Poloniex']
 
