@@ -1,16 +1,10 @@
-
-"""This module provides functions for interacting with the SCL Group slack."""
-
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import json
-
 import requests
 import six
-
-from . import config
-from . import core
+from .credentials import Credentials
 
 if six.PY2:
     from contextlib2 import contextmanager
@@ -18,10 +12,10 @@ else:
     from contextlib import contextmanager
 
 
-def post_message(channel, message, username='cryptobot', icon=':ghost:',
+def post_message(channel, message, username='cryptobot', icon=':matrix:',
                  alert_users=None, alert_channel=False):
 
-    """Post a message to an slack Group slack channel or user.
+    """Post a message to an slack group slack channel or user.
     Parameters
     ----------
     channel : str
@@ -31,7 +25,7 @@ def post_message(channel, message, username='cryptobot', icon=':ghost:',
         The message to post, see the ``Notes`` section for syntax.
     username : str, optional
         Username for the message to come from.
-        Default is ``'scl-bot'``.
+        Default is ``'cryptobot'``.
     icon : str, optional
         User icon for the post to have. See http://www.emoji-cheat-sheet.com
         for options.
@@ -66,13 +60,12 @@ def post_message(channel, message, username='cryptobot', icon=':ghost:',
     Slack automatically marks-up urls.
     For more advanced formatting see https://api.slack.com/docs/formatting
     """
-    raw_config = config.load_config()
-    slack_dict = config.extract_value(raw_config, 'slack', 'main')
-    slack_url = config.extract_value_set_type(slack_dict, 'webhook_url',
-                                              'slack', str)
+    config = Credentials('slack')
+    config.load()
+    slack_url = config.webhook_url
     alert_string = _alert_string(alert_users, alert_channel)
     alert_message = alert_string + message
-
+    print(config.webhook_url)
     json_dict = {
         'username': username,
         'channel': channel,
@@ -80,7 +73,8 @@ def post_message(channel, message, username='cryptobot', icon=':ghost:',
         'icon_emoji': icon
     }
 
-    return requests.post(slack_url, data=json.dumps(json_dict))
+    return requests.post(slack_url,
+                         data=json.dumps(json_dict))
 
 
 @contextmanager

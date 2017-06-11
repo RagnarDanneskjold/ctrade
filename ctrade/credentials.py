@@ -5,11 +5,10 @@ from ConfigParser import ConfigParser, RawConfigParser
 import os
 import logging
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 __all__ = ['Credentials']
-
 
 AUTH = {
     'poloniex' :
@@ -23,14 +22,15 @@ AUTH = {
     'slack':
         {'crypto-bot': [
             'client_id',
-            'Secret',
-            'token',
+            'client_secret',
+            'verification_token',
             'webhook_url'
         ]}
 }
 
 DEFAULT_PROFILE = {
     'poloniex': 'api',
+    'slack': 'crypto-bot'
 }
 
 class Credentials(object):
@@ -61,7 +61,7 @@ class Credentials(object):
         return os.path.isfile(self._config_file)
 
     def create_config_file(self, params):
-        LOG.info("Creating config file in {}".format(self._credential_dir))
+        logger.info("Creating config file in {}".format(self._credential_dir))
         config = RawConfigParser()
         config.add_section(DEFAULT_PROFILE[self._service])
 
@@ -83,10 +83,10 @@ class Credentials(object):
         in ~/.lotame/config
         """
         if self.config_exists():
-            LOG.warning("A config files was found. Press 0 to proceed.")
+            logger.warning("A config files was found. Press 0 to proceed.")
 
             if raw_input() != '0':
-                LOG.warning("Aborting configuration.")
+                logger.warning("Aborting configuration.")
                 return None
 
         if params is None:
