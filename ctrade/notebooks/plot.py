@@ -7,8 +7,7 @@ import numpy as np
 import copy
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_samples, silhouette_score
+
 
 def plot_feature_importances(estimator, feature_names, top=None, plot_args=None):
 

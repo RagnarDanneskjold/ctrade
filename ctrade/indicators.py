@@ -42,11 +42,11 @@ def tag_ranges(df, column, quantiles=(0.1, 0.9)):
 
 	df[column+'_tag'] = 0
 	mask = df[column]>=M
-	df.loc[mask, column+'_tag'] = -1
-	mask = df[column]<=m
 	df.loc[mask, column+'_tag'] = 1
-	mask = (df[column]<=Q1) & (df[column]>=Q2)
-	df.loc[mask, column+'_tag'] = 2
+	mask = df[column]<=m
+	df.loc[mask, column+'_tag'] = -1
+	# mask = (df[column]<=Q1) & (df[column]>=Q2)
+	# df.loc[mask, column+'_tag'] = 2
 	return df, (m, M)
 
 def which_q(df, column, value):
