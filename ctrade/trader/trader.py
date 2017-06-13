@@ -3,7 +3,7 @@ from datetime import datetime
 from model import *
 from sklearn.ensemble import RandomForestRegressor
 import logging
-from apscheduler.schedulers.background import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -50,7 +50,6 @@ class Trading(object):
 	def run(self):
 
 		df = self.pull_data(self.pair, 15, '15m')
-		m = Model(indicators, self.pair)
 		m.set_indicators()
 		X = m.get_data(df).dropna()
 		last_prediction = self.model.predict(X)
@@ -67,7 +66,7 @@ class Status(object):
 
 	def __init__(self):
 
-		self._status = 'Start'
+		self._status = 'Started'
 		self._time = None
 		self._price = None
 		self._time = None
@@ -106,7 +105,7 @@ class Status(object):
 
 	def update(self, value, price, timestamp):
 
-		if ((self.status=='Start' or 'Close' in self.status) and value==1):
+		if ((self.status=='Started' or 'Close' in self.status) and value==1):
 			self.status = 'Long'
 			self.transactions.append(['Long', timestamp])
 			self.transaction_price.append(['Long', price])
@@ -116,7 +115,7 @@ class Status(object):
 			self.transactions[-1] += [timestamp]
 			self.transactions[-1] += [price]
 
-		if ((self.status=='Start' or 'Close' in self.status) and value==-1):
+		if ((self.status=='Started' or 'Close' in self.status) and value==-1):
 			self.status = 'Short'
 			self.transactions.append(['Short', timestamp])
 			self.transaction_price.append(['Short', price])
@@ -147,9 +146,8 @@ if __name__=='__main__':
 	trader = Trading('BTC_LTC', indicators)
 	trader.train(est, 60, '15m')
 
-	scheduler = BlockingScheduler()
-	scheduler.add_job(scheduler.start, 
+	scheduler = BackgroundScheduler()
+	scheduler.add_job(trader.run, 
 					  'interval', minutes=15,
-					  start_date='2017-06-13 22:55:00')
+					  start_date=datetime.now())
 	scheduler.start()
-
