@@ -55,15 +55,15 @@ def update_slack(major=['ETH', 'LTC', 'XRP']):
 
 def main():
 
-	post_message('cryptobot', 
-				 'BOT IS RUNNING...', 
-				 username='cryptobot', 
-				 icon=':matrix:')
+	# post_message('cryptobot', 
+	# 			 'BOT IS RUNNING...', 
+	# 			 username='cryptobot', 
+	# 			 icon=':matrix:')
 
 	scheduler = BlockingScheduler()
 	scheduler.add_job(update_slack, 
 					  'interval', hours=4,
-					  start_date='2017-06-13 00:15:00')
+					  start_date='2017-06-14 23:00:00')
 	scheduler.start()
 
 if __name__=='__main__':

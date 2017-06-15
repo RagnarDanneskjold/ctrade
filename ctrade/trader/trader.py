@@ -4,6 +4,8 @@ from model import *
 from sklearn.ensemble import RandomForestRegressor
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
+import argparse
+import time
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,7 +22,8 @@ class Trading(object):
 		self.model = None
 		self.polo = Poloniex()
 		self.signal = None
-		self.status = Status()
+		self.m = Model(indicators, pair)
+		self.status = Status(pair)
 
 	def pull_data(self, pair, days, timeframe):
 
@@ -35,10 +38,10 @@ class Trading(object):
 		df = self.pull_data(self.pair, days, timeframe)
 		
 		logging.info('Training the model')
-		m = Model(indicators, self.pair)
-		m.set_indicators()
-		X = m.get_data(df).dropna()
-		Y = m.get_target(df[self.pair]).dropna()
+		self.m = Model(indicators, self.pair)
+		self.m.set_indicators()
+		X = self.m.get_data(df).dropna()
+		Y = self.m.get_target(df[self.pair]).dropna()
 		X, Y = clean_dataset(X, Y)
 		self.model  = StackModels(est)
 		self.model.fit(X, Y)
@@ -50,8 +53,7 @@ class Trading(object):
 	def run(self):
 
 		df = self.pull_data(self.pair, 15, '15m')
-		m.set_indicators()
-		X = m.get_data(df).dropna()
+		X = self.m.get_data(df).dropna()
 		last_prediction = self.model.predict(X)
 		last_signal = self.signal.predict(last_prediction)
 		last_signal = last_signal.join(df[self.pair], how='inner')
@@ -59,13 +61,12 @@ class Trading(object):
 		price = last_signal[self.pair].iloc[-1]
 		timestamp = last_signal.index[-1].strftime("%Y-%m-%d %H:%M")
 		self.status.update(value, price, timestamp)
-		print(self.status)
-
 
 class Status(object):
 
-	def __init__(self):
+	def __init__(self, pair):
 
+		self.pair = pair
 		self._status = 'Started'
 		self._time = None
 		self._price = None
@@ -78,7 +79,6 @@ class Status(object):
 		return '{} - {} - {}'.format(self.time,
 									 self.status,
 									 self.price)
-
 	@property
 	def status(self):
 		return self._status
@@ -103,27 +103,61 @@ class Status(object):
 	def price(self, value):
 		self._price = value
 
+	def notify(self):
+		if len(self.transactions[-1])==2:
+			msg = "{} - Entered {} position for {} at {}".format(datetime.now(), 
+																 self.status, 
+																 self.pair,
+																 self.price[-1][1])
+		else:
+			if 'Short' in self.status:
+				gain =  (self.price[-1][1] - self.price[-1][2])/self.price[-1][1] 
+			elif 'Long' in self.status:
+				gain =  (self.price[-1][2] - self.price[-1][1])/self.price[-1][1] 
+
+			date = datetime.now().strftime("%Y-%m-%d %H:%M")
+			msg = "{} - Closed {} position for {} at {} - ".format(date, 
+																   self.status, 
+																   self.pair,
+																   self.price[-1][1])
+		with open('~/trader-{}.log'.format(self.pair), 'a') as f:
+			f.write(msg)
+
+		logging.info(msg)
+
+		# post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
+
 	def update(self, value, price, timestamp):
 
 		if ((self.status=='Started' or 'Close' in self.status) and value==1):
 			self.status = 'Long'
 			self.transactions.append(['Long', timestamp])
 			self.transaction_price.append(['Long', price])
+			event = True
 
-		if (self.status=='Long' and value==-1):
+		elif (self.status=='Long' and value==-1):
 			self.status = 'Close Long'
 			self.transactions[-1] += [timestamp]
 			self.transactions[-1] += [price]
+			event = True
 
-		if ((self.status=='Started' or 'Close' in self.status) and value==-1):
+		elif ((self.status=='Started' or 'Close' in self.status) and value==-1):
 			self.status = 'Short'
 			self.transactions.append(['Short', timestamp])
 			self.transaction_price.append(['Short', price])
+			event = True
 
-		if (self.status=='Short' and value==1):
+		elif (self.status=='Short' and value==1):
 			self.status = 'Close Short'
 			self.transactions[-1] += [timestamp]
 			self.transactions[-1] += [price]
+			event = True
+
+		else:
+			event = False
+
+		if event:
+			self.notify()
 
 		self.time = timestamp
 		self.price = price
@@ -141,13 +175,30 @@ if __name__=='__main__':
     'pivot_weekly': ('pivot', {'mode': 'week'}),
     'consecutive_periods': ('consecutive_periods', {'add_periods': ['1h', '4h']}),
 	}
+
+
+	parser = argparse.ArgumentParser(description='Trading script')
+	parser.add_argument('-cp','--currency_pair', dest='pair',
+		help='Currency pair to use', 
+		default='BTC_LTC')
+
+	inputs = parser.parse_args()
+	# post_message('cryptobot', 
+	# 			 'STARTED TRADING USING MODEL...', 
+	# 			 username='cryptobot', 
+	# 			 icon=':matrix:')
+
 	logging.info('Start trading')
 	est = RandomForestRegressor()
-	trader = Trading('BTC_LTC', indicators)
+	trader = Trading(inputs.pair, indicators)
 	trader.train(est, 60, '15m')
+	trader.run()
 
-	scheduler = BackgroundScheduler()
-	scheduler.add_job(trader.run, 
-					  'interval', minutes=15,
-					  start_date=datetime.now())
-	scheduler.start()
+	t = time.time()
+	while True:
+		if time.time()-t>60:
+			t = time.time()
+			trader.run()
+		
+		time.sleep(60)
+
