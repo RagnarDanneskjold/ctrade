@@ -81,6 +81,9 @@ class Model(object):
     def get_target(self, Y, span=[2, 5, 10, 25, 50, 100]):
         
         _Y = pd.DataFrame(index=Y.index)
+
+        Y = (Y - Y.mean())/Y.std()
+
         for s in span:
             _Y[s] = np.nan
             _Y.iloc[:-s, -1] = (Y - Y.shift(s)).iloc[s:].values

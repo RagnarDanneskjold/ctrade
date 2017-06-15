@@ -1,11 +1,12 @@
 from ctrade import *
 from datetime import datetime
 from model import *
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import argparse
 import time
+import os
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -58,7 +59,7 @@ class Trading(object):
 
 	def run(self):
 		date = datetime.now().strftime("%Y-%m-%d %H:%M")
-		logging.info('Doing new predictions {}'.format(date))
+		logging.info('{} Doing new predictions'.format(date))
 
 		df = self.pull_data(self.pair, 15, '15m')
 		X = self.m.get_data(df).dropna()
@@ -68,7 +69,7 @@ class Trading(object):
 		value = last_signal['signal'].iloc[-1]
 		price = last_signal[self.pair].iloc[-1]
 		timestamp = last_signal.index[-1].strftime("%Y-%m-%d %H:%M")
-		self.status.update(1, price, timestamp)
+		self.status.update(value, price, timestamp)
 
 class Status(object):
 
@@ -129,7 +130,14 @@ class Status(object):
 																   self.status.split(' ')[1], 
 																   self.pair,
 																   self.transaction_price[-1][1])
-		with open('~/trader-{}.log'.format(self.pair), 'a') as f:
+
+		filename = '/home/ubuntu/trader-{}.log'.format(self.pair)
+		if not os.path.isfile(filename):
+			mode = 'w'
+		else:
+			mode = 'a'
+
+		with open(filename, mode) as f:
 			f.write(msg)
 
 		logging.info(msg)
@@ -197,7 +205,7 @@ if __name__=='__main__':
 	# 			 icon=':matrix:')
 
 	logging.info('Start trading')
-	est = RandomForestRegressor()
+	est = GradientBoostingRegressor(n_estimators=40, min_samples_leaf=10, max_depth=3)  
 	trader = Trading(inputs.pair, indicators)
 	trader.train(est, 60, '15m')
 	trader.run()
