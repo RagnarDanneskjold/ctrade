@@ -26,8 +26,14 @@ class Trading(object):
 		self.status = Status(pair)
 
 	def pull_data(self, pair, days, timeframe):
+		maxi = 0
+		while maxi<20:
+			try:
+				df = self.polo.chart(pair, days, timeframe).df
+				maxi = 100
+			except:
+				maxi += 1
 
-		df = self.polo.chart(pair, days, timeframe).df
 		df[pair] = df['close']
 
 		return df
@@ -51,6 +57,8 @@ class Trading(object):
 		logging.info('Model trained')
 
 	def run(self):
+		date = datetime.now().strftime("%Y-%m-%d %H:%M")
+		logging.info('Doing new predictions {}'.format(date))
 
 		df = self.pull_data(self.pair, 15, '15m')
 		X = self.m.get_data(df).dropna()
@@ -60,7 +68,7 @@ class Trading(object):
 		value = last_signal['signal'].iloc[-1]
 		price = last_signal[self.pair].iloc[-1]
 		timestamp = last_signal.index[-1].strftime("%Y-%m-%d %H:%M")
-		self.status.update(value, price, timestamp)
+		self.status.update(1, price, timestamp)
 
 class Status(object):
 
@@ -104,27 +112,27 @@ class Status(object):
 		self._price = value
 
 	def notify(self):
+
+		date = datetime.now().strftime("%Y-%m-%d %H:%M")
 		if len(self.transactions[-1])==2:
-			msg = "{} - Entered {} position for {} at {}".format(datetime.now(), 
+			msg = "{} - Entered {} position for {} at {}".format(date, 
 																 self.status, 
 																 self.pair,
-																 self.price[-1][1])
+																 self.transaction_price[-1][1])
 		else:
 			if 'Short' in self.status:
 				gain =  (self.price[-1][1] - self.price[-1][2])/self.price[-1][1] 
 			elif 'Long' in self.status:
 				gain =  (self.price[-1][2] - self.price[-1][1])/self.price[-1][1] 
 
-			date = datetime.now().strftime("%Y-%m-%d %H:%M")
 			msg = "{} - Closed {} position for {} at {} - ".format(date, 
-																   self.status, 
+																   self.status.split(' ')[1], 
 																   self.pair,
-																   self.price[-1][1])
+																   self.transaction_price[-1][1])
 		with open('~/trader-{}.log'.format(self.pair), 'a') as f:
 			f.write(msg)
 
 		logging.info(msg)
-
 		# post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
 
 	def update(self, value, price, timestamp):
@@ -138,7 +146,7 @@ class Status(object):
 		elif (self.status=='Long' and value==-1):
 			self.status = 'Close Long'
 			self.transactions[-1] += [timestamp]
-			self.transactions[-1] += [price]
+			self.transaction_price[-1] += [price]
 			event = True
 
 		elif ((self.status=='Started' or 'Close' in self.status) and value==-1):
@@ -150,7 +158,7 @@ class Status(object):
 		elif (self.status=='Short' and value==1):
 			self.status = 'Close Short'
 			self.transactions[-1] += [timestamp]
-			self.transactions[-1] += [price]
+			self.transaction_price[-1] += [price]
 			event = True
 
 		else:
