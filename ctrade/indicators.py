@@ -1,6 +1,10 @@
 import pandas as pd
 from pandas import np
 from functools import partial
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def indicator_partial(indicator, **kwargs):
     return partial(indicator, **kwargs)
@@ -27,6 +31,8 @@ def ema(series, window=50, min_periods=0):
 
 
 def macd(series, fast_window=12, slow_window=26, signal_window=9):
+
+    logging.info('Calculating macd')
     macd = ema(series, window=fast_window) - ema(series, window=slow_window)
     signal = ema(macd, window=signal_window)
     return pd.DataFrame({'macd_{}-{}'.format(fast_window, slow_window): macd, 
@@ -91,6 +97,8 @@ def sstoc(df, col_labels=('low', 'high', 'close'),
 
 
 def atr(df, col_labels=('low', 'high', 'close'), window=14):
+
+    logging.info('Calculating atr')
     low = df[col_labels[0]]
     high = df[col_labels[1]]
     close = df[col_labels[2]]
@@ -112,6 +120,8 @@ def atr(df, col_labels=('low', 'high', 'close'), window=14):
 
 
 def bbands(series, window=20, min_periods=0, stdev_multiplier=2, mode='ranges'):
+
+    logging.info('Calculating bolinger bands')
     middle = sma(series, window=window, min_periods=min_periods)
     std = series.rolling(window=window,
                          min_periods=min_periods).std() * stdev_multiplier
@@ -127,6 +137,8 @@ def bbands(series, window=20, min_periods=0, stdev_multiplier=2, mode='ranges'):
 
 
 def rsi(series, window=14, min_periods=0):
+
+    logging.info('Calculating stocastic oscillator')
     change = series.diff()
     change.iloc[0] = 0.0  # Set gain/loss of first day to zero
     # Using arithmetic mean, not exponential smoothing here
@@ -149,10 +161,10 @@ def rsi(series, window=14, min_periods=0):
 def get_pivot(x, mode='day'):
     if mode=='day':
         x[mode] = x.reset_index()['index'].apply(lambda x: x.dayofyear).values
-        print('Calculating daily pivot levels')
+        logging.info('Calculating daily pivot levels')
     if mode=='week':
         x[mode] = x.reset_index()['index'].apply(lambda x: x.week).values
-        print('Calculating weekly pivot levels')
+        logging.info('Calculating weekly pivot levels')
 
     close = x.groupby([mode]).last()['value'].sort_index()
     high = x.groupby([mode]).aggregate(np.max)['value'].sort_index()
@@ -186,9 +198,9 @@ def pivot(series, mode='day'):
         ref = igroup-1
         for i in levels:
             if ref in p.index:
-                group[i] =  group['value'] - p.loc[ref, i.split('_')[:1]].values[0]
+                group.loc[:,i] = group.loc[:,'value'] - p.loc[ref, i.split('_')[:1]].values[0]
             else:    
-                group[i] =  np.nan
+                group.loc[:,i] =  np.nan
 
         out = pd.concat([out, group])
         
