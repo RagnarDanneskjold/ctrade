@@ -121,10 +121,10 @@ class Status(object):
 																 self.pair,
 																 self.transaction_price[-1][1])
 		else:
+			gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
+					 /self.transaction_price[-1][1] 
 			if 'Short' in self.status:
-				gain =  (self.price[-1][1] - self.price[-1][2])/self.price[-1][1] 
-			elif 'Long' in self.status:
-				gain =  (self.price[-1][2] - self.price[-1][1])/self.price[-1][1] 
+				gain *= -1  
 
 			msg = "{} - Closed {} position for {} at {} - ".format(date, 
 																   self.status.split(' ')[1], 
@@ -141,7 +141,7 @@ class Status(object):
 			f.write(msg)
 
 		logging.info(msg)
-		# post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
+		post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
 
 	def update(self, value, price, timestamp):
 
@@ -199,10 +199,10 @@ if __name__=='__main__':
 		default='BTC_LTC')
 
 	inputs = parser.parse_args()
-	# post_message('cryptobot', 
-	# 			 'STARTED TRADING USING MODEL...', 
-	# 			 username='cryptobot', 
-	# 			 icon=':matrix:')
+	post_message('cryptobot', 
+				 'STARTED TRADING {} USING MODEL...'.format(inputs.pair), 
+				 username='cryptobot', 
+				 icon=':matrix:')
 
 	logging.info('Start trading')
 	est = GradientBoostingRegressor(n_estimators=40, min_samples_leaf=10, max_depth=3)  
@@ -212,9 +212,9 @@ if __name__=='__main__':
 
 	t = time.time()
 	while True:
-		if time.time()-t>60:
+		if time.time()-t>900:
 			t = time.time()
 			trader.run()
 		
-		time.sleep(60)
+		time.sleep(900)
 
