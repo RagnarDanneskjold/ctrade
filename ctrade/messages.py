@@ -4,7 +4,7 @@ from __future__ import (absolute_import, division, print_function,
 import json
 import requests
 import six
-from .credentials import Credentials
+from .manager import Credentials
 
 if six.PY2:
     from contextlib2 import contextmanager

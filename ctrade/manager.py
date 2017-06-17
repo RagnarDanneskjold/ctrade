@@ -8,6 +8,7 @@ import glob
 import pandas as pd
 from ctrade import *
 from datetime import datetime
+import pickle
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ class Credentials(object):
 
         self.create_config_file(params)
 
-save_types = ['predictions', 'prediction_data']
+save_types = ['predictions', 'prediction_data', 'quantiles']
 
 class FileManager(object):
 
@@ -126,16 +127,22 @@ class FileManager(object):
     def save(self, df, save_type='predictions'):
 
         date = datetime.now().strftime(DATA_FORMAT)
-        df.to_pickle(self._data +
-                     '/{}-{}-{}.pkl'.format(date,
-                                            save_type,
-                                            self._pair))
+        filename = self._data + '/{}-{}-{}.pkl'.format(date,
+                                                       save_type,
+                                                       self._pair)
+        try:
+            df.to_pickle(filename)
+        except:
+            pickle.dump(df, open(filename, 'wb'))
 
     def get_last(self, save_type='predictions'):
 
         files = self.files(save_type=save_type)
         file = sorted(files)[-1]
-        return pd.read_pickle(file)
+        try:
+            return pd.read_pickle(file)
+        except:
+            return pickle.load(open(file, 'r'))
 
     def files(self, save_type='predictions'):
         files = glob.glob(self._data +

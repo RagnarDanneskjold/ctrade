@@ -26,6 +26,7 @@ class Trading(object):
         self.m = Model(indicators, pair)
         self.status = Status(pair)
         self.manager = FileManager(pair)
+        self.signal = Signals(pair)
 
     def _pull_data(self, days, timeframe):
 
@@ -65,7 +66,6 @@ class Trading(object):
         logging.info('Training the model')
         self.m = Model(indicators, self.pair)
         self.model  = StackModels(est)
-        self.signal = Signals()
 
         self.m.set_indicators()
         X = self.m.get_data(df).dropna()
@@ -111,14 +111,14 @@ if __name__=='__main__':
         default='BTC_LTC')
 
     inputs = parser.parse_args()
-    # post_message('cryptobot',
-    # 			 'STARTED TRADING {} USING MODEL...'.format(inputs.pair),
-    # 			 username='cryptobot',
-    # 			 icon=':matrix:')
+    post_message('cryptobot',
+    			 'STARTED TRADING {} USING MODEL...'.format(inputs.pair),
+    			 username='cryptobot'po,
+    			 icon=':matrix:')
 
     logging.info('Start trading')
-    est = GradientBoostingRegressor(n_estimators=20,
-                                    min_samples_leaf=10,
+    est = GradientBoostingRegressor(n_estimators=40,
+                                    min_samples_leaf=20,
                                     max_depth=3,
                                     subsample=0.3)
     trader = Trading(inputs.pair, indicators)

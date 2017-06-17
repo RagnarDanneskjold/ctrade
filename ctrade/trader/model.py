@@ -1,5 +1,7 @@
 from ctrade.indicators import *
 from ctrade.manager import *
+from ctrade.utils import *
+from ctrade.messages import *
 from model_utils import *
 import copy
 from collections import OrderedDict
@@ -102,10 +104,11 @@ class Model(object):
 
 class Signals(object):
     
-    def __init__(self):
+    def __init__(self, pair):
     
         self.quantiles = {}
         self.cumulative = {}
+        self.manager = FileManager(pair)
 
     def fit(self, X):
         
@@ -114,6 +117,8 @@ class Signals(object):
             self.cumulative[col] = self.get_cumulative(X[col], st.t)
             df, Q = tag_ranges(X, col, quantiles=(0.3, 0.7))
             self.quantiles[col] = Q
+
+        self.manager.save(self.quantiles, save_type='quantiles')
     
         signal_tags = [i for i in X.columns if 'tag' in i]
         X['main'] = X[signal_tags].sum(axis=1)
@@ -209,7 +214,7 @@ class Status(object):
         if len(self.transactions[-1])==2:
             msg = "{} - Entered {} position for {} at {}".format(date,
                                                                  self.status,
-                                                                 self.pair,
+                                                                 format_pair(self.pair),
                                                                  self.transaction_price[-1][1])
         else:
             gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
@@ -219,7 +224,7 @@ class Status(object):
 
             msg = "{} - Closed {} position for {} at {} - ".format(date,
                                                                    self.status.split(' ')[1],
-                                                                   self.pair,
+                                                                   format_pair(self.pair),
                                                                    self.transaction_price[-1][1])
 
         filename = self.manager._home + '/trader-{}.log'.format(self.pair)
@@ -231,7 +236,7 @@ class Status(object):
             f.write(msg)
 
         logging.info(msg)
-        # post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
+        post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
 
     def update(self, last_signal):
 
