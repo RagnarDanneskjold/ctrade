@@ -4,11 +4,17 @@ from __future__ import (absolute_import, division, print_function,
 from ConfigParser import ConfigParser, RawConfigParser
 import os
 import logging
+import glob
+import pandas as pd
+from ctrade import *
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-__all__ = ['Credentials']
+__all__ = ['Credentials', 'FileManager']
+
+DATA_FORMAT = "%Y-%m-%d_%H-%M"
 
 AUTH = {
     'poloniex' :
@@ -96,3 +102,53 @@ class Credentials(object):
                                       .format(' '.join(k.split('_'))))
 
         self.create_config_file(params)
+
+
+class FileManager(object):
+
+    def __init__(self, pair):
+
+        self._pair = pair
+        self._home = os.path.expanduser("~")
+        self._data_dir = os.path.join(self._home, 'data')
+        self._data = os.path.join(self._data_dir, pair)
+        self.check()
+
+    def check(self):
+
+        if not os.path.isdir(self._data_dir):
+            os.mkdir(self._data_dir)
+        if not os.path.isdir(self._data):
+            os.mkdir(self._data)
+
+    def save(self, df, date, file_type='prediction'):
+        df.to_pickle(self._data +
+                     '/{}-{}-{}.pkl'.format(date,
+                                            file_type,
+                                            self._pair))
+
+    def last(self, file_type='prediction'):
+
+        files = self.files(file_type=file_type)
+        file = sorted(files)[:-1]
+        return pd.read_pickle(file)
+
+    def files(self, file_type='prediction'):
+        files = glob.glob(self._data +
+                          '/*{}-{}.pkl'.format(file_type,
+                                               self._pair))
+
+        return files
+
+    def islast(self, file_type='prediction'):
+        files = self.files(file_type=file_type)
+        if len(files)>0:
+            date = files[-1].split('/')[-1].split('-'+file_type)[0]
+            date = datetime.strptime(date, DATA_FORMAT)
+            time_from_last = (datetime.now() - date).total_seconds()/60
+            if time_from_last<100:
+                return len(files)>0
+            else:
+                return False
+        else:
+            return False

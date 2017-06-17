@@ -1,18 +1,17 @@
-from ctrade import *
-from datetime import datetime
 from model import *
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 import logging
-from apscheduler.schedulers.background import BackgroundScheduler
 import argparse
 import time
-import os
+from ctrade import *
 
 import warnings
 warnings.filterwarnings("ignore")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+DATA_FORMAT = "%Y-%m-%d %H:%M"
 
 class Trading(object):
  
@@ -25,15 +24,29 @@ class Trading(object):
 		self.signal = None
 		self.m = Model(indicators, pair)
 		self.status = Status(pair)
+		self.files = FileManager(pair)
 
-	def pull_data(self, pair, days, timeframe):
+	def _pull_data(self, days, timeframe):
+
 		maxi = 0
-		while maxi<20:
+		while maxi < 20:
 			try:
-				df = self.polo.chart(pair, days, timeframe).df
+				df = self.polo.chart(self.pair, days, timeframe).df
 				maxi = 100
 			except:
 				maxi += 1
+
+		return df
+
+	def pull_data(self, days, timeframe):
+
+        is self.files.isfile
+		last_df = self.files.read_last()
+		size = last_df.shape[0]
+		df = self._pull_data(0, timeframe)
+		mask = df.index.isin(last_df.index)
+        last_df = pd.concat([last_df, df[~mask]]).iloc[-size:]
+		last = self.files.save_df(last_df)
 
 		df[pair] = df['close']
 
@@ -42,141 +55,33 @@ class Trading(object):
 	def train(self, est, days, timeframe):
 
 		logging.info('Pulling the data')
-		df = self.pull_data(self.pair, days, timeframe)
+		df = self.pull_data(days, timeframe)
 		
 		logging.info('Training the model')
 		self.m = Model(indicators, self.pair)
+		self.model  = StackModels(est)
+		self.signal = Signals()
+
 		self.m.set_indicators()
 		X = self.m.get_data(df).dropna()
 		Y = self.m.get_target(df[self.pair]).dropna()
 		X, Y = clean_dataset(X, Y)
-		self.model  = StackModels(est)
 		self.model.fit(X, Y)
 		predictions = self.model.stack_predictions()
-		self.signal = Signals()
-		signals = self.signal.fit(predictions)
+		_ = self.signal.fit(predictions)
 		logging.info('Model trained')
 
 	def run(self):
-		date = datetime.now().strftime("%Y-%m-%d %H:%M")
+		date = datetime.now().strftime(DATA_FORMAT)
 		logging.info('{} Doing new predictions'.format(date))
 
-		df = self.pull_data(self.pair, 15, '15m')
+		df = self.pull_data(15, '15m')
 		X = self.m.get_data(df).dropna()
 		last_prediction = self.model.predict(X)
 		last_signal = self.signal.predict(last_prediction)
 		last_signal = last_signal.join(df[self.pair], how='inner')
-		value = last_signal['signal'].iloc[-1]
-		price = last_signal[self.pair].iloc[-1]
-		timestamp = last_signal.index[-1].strftime("%Y-%m-%d %H:%M")
-		self.status.update(value, price, timestamp)
 
-class Status(object):
-
-	def __init__(self, pair):
-
-		self.pair = pair
-		self._status = 'Started'
-		self._time = None
-		self._price = None
-		self._time = None
-		self.transactions = []
-		self.transaction_price = []
-
-
-	def __repr__(self):
-		return '{} - {} - {}'.format(self.time,
-									 self.status,
-									 self.price)
-	@property
-	def status(self):
-		return self._status
-
-	@status.setter
-	def status(self, value):
-		self._status = value
-
-	@property
-	def time(self):
-		return self._time
-
-	@time.setter
-	def time(self, value):
-		self._time = value
-
-	@property
-	def price(self):
-		return self._price
-
-	@price.setter
-	def price(self, value):
-		self._price = value
-
-	def notify(self):
-
-		date = datetime.now().strftime("%Y-%m-%d %H:%M")
-		if len(self.transactions[-1])==2:
-			msg = "{} - Entered {} position for {} at {}".format(date, 
-																 self.status, 
-																 self.pair,
-																 self.transaction_price[-1][1])
-		else:
-			gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
-					 /self.transaction_price[-1][1] 
-			if 'Short' in self.status:
-				gain *= -1  
-
-			msg = "{} - Closed {} position for {} at {} - ".format(date, 
-																   self.status.split(' ')[1], 
-																   self.pair,
-																   self.transaction_price[-1][1])
-
-		filename = '/home/ubuntu/trader-{}.log'.format(self.pair)
-		if not os.path.isfile(filename):
-			mode = 'w'
-		else:
-			mode = 'a'
-
-		with open(filename, mode) as f:
-			f.write(msg)
-
-		logging.info(msg)
-		post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
-
-	def update(self, value, price, timestamp):
-
-		if ((self.status=='Started' or 'Close' in self.status) and value==1):
-			self.status = 'Long'
-			self.transactions.append(['Long', timestamp])
-			self.transaction_price.append(['Long', price])
-			event = True
-
-		elif (self.status=='Long' and value==-1):
-			self.status = 'Close Long'
-			self.transactions[-1] += [timestamp]
-			self.transaction_price[-1] += [price]
-			event = True
-
-		elif ((self.status=='Started' or 'Close' in self.status) and value==-1):
-			self.status = 'Short'
-			self.transactions.append(['Short', timestamp])
-			self.transaction_price.append(['Short', price])
-			event = True
-
-		elif (self.status=='Short' and value==1):
-			self.status = 'Close Short'
-			self.transactions[-1] += [timestamp]
-			self.transaction_price[-1] += [price]
-			event = True
-
-		else:
-			event = False
-
-		if event:
-			self.notify()
-
-		self.time = timestamp
-		self.price = price
+		self.status.update(last_signal)
 
 
 if __name__=='__main__':

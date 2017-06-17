@@ -69,6 +69,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+./notebooks/ipynb_checkpoints
 
 # pyenv
 .python-version
@@ -102,3 +103,6 @@ ENV/
 
 # PyCharm
 .idea
+
+# Other files
+.DS_Store

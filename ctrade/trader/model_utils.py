@@ -13,7 +13,9 @@ def do_easy_crossval(estimator, X, Y, transformer=None, W=None,
     modeltype = ModelType(estimator)._modeltype
     Y_score = OrderedDict(); Yte = OrderedDict(); Y_pred = OrderedDict(); i=0
     Wte = OrderedDict()
-    crossval_prediction = pd.DataFrame(0, index=X.index, columns=['true', 'pred', 'proba'])
+    crossval_prediction = pd.DataFrame(0,
+                                       index=X.index,
+                                       columns=['true', 'pred', 'proba'])
     crossval_prediction['true'] = Y.values
     folds = 1
 

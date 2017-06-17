@@ -42,7 +42,6 @@ def macd(series, fast_window=12, slow_window=26, signal_window=9):
 def tag_ranges(df, column, quantiles=(0.1, 0.9)):
 	m = df[column].quantile(quantiles[0])
 	M = df[column].quantile(quantiles[1])
-	print(m, M)
 	Q1 = df[column].quantile(0.55)
 	Q2 = df[column].quantile(0.45)
 
