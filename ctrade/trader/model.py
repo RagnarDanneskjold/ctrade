@@ -1,16 +1,21 @@
 from ctrade.indicators import *
+from ctrade.manager import *
 from model_utils import *
 import copy
 from collections import OrderedDict
+from datetime import datetime
+import os
+import scipy.stats as st
 
+DATA_FORMAT = "%Y-%m-%d %H:%M"
 
 def clean_dataset(X, Y):
 
-	mask = Y.index.isin(X.index)
-	Y = Y[mask]
-	mask = X.index.isin(Y.index)
-	X = X[mask]
-	return X, Y
+    mask = Y.index.isin(X.index)
+    Y = Y[mask]
+    mask = X.index.isin(Y.index)
+    X = X[mask]
+    return X, Y
 
 
 class StackModels(object):
@@ -20,11 +25,14 @@ class StackModels(object):
         self.fitted_estimators = []
         self.oob_predictions = []
         self.labels = []
+        self.factors = []
         
     def fit(self, X, Y):
-                
-        for col in Y.columns:
-            res = do_easy_crossval(self.estimator, X, Y[col]*1000, 
+
+
+        for icol,col in enumerate(Y.columns):
+            self.factors.append(Y.iloc[:, icol].std())
+            res = do_easy_crossval(self.estimator, X, Y[col]/self.factors[icol],
                                    folds=10, refit=True, plot=False)
             self.fitted_estimators.append(copy.deepcopy(res[1]))
             self.oob_predictions.append(res[0].sort_index()
@@ -62,7 +70,7 @@ class Model(object):
     def __init__(self, indicators, currency):
         self.indicators = indicators
         self.currency = currency
-        self.indicator_func = OrderedDict(list)
+        self.indicator_func = OrderedDict()
         
     def set_indicators(self):
         
@@ -86,8 +94,6 @@ class Model(object):
         
         _Y = pd.DataFrame(index=Y.index)
 
-        Y = (Y - Y.mean())/Y.std()
-
         for s in span:
             _Y[s] = np.nan
             _Y.iloc[:-s, -1] = (Y - Y.shift(s)).iloc[s:].values
@@ -99,11 +105,13 @@ class Signals(object):
     def __init__(self):
     
         self.quantiles = {}
+        self.cumulative = {}
 
     def fit(self, X):
         
         for col in X.columns:
-            # TOTO: fit the distribution
+
+            self.cumulative[col] = self.get_cumulative(X[col], st.t)
             df, Q = tag_ranges(X, col, quantiles=(0.3, 0.7))
             self.quantiles[col] = Q
     
@@ -116,7 +124,15 @@ class Signals(object):
         X.loc[mask, 'signal'] = -1
 
         return X
-    
+
+    @staticmethod
+    def get_cumulative(series, func):
+
+        t_param = func.fit(series)
+        distr = func(*t_param)
+
+        return distr.cdf
+
     @staticmethod
     def apply_tag(df, column, Q):
 
@@ -147,111 +163,111 @@ class Signals(object):
 
 class Status(object):
 
-	def __init__(self, pair):
+    def __init__(self, pair):
 
-		self.pair = pair
-		self._status = 'Started'
-		self._time = None
-		self._price = None
-		self._time = None
-		self.transactions = []
-		self.transaction_price = []
+        self.pair = pair
+        self._status = 'Started'
+        self._time = None
+        self._price = None
+        self._time = None
+        self.transactions = []
+        self.transaction_price = []
+        self.manager = FileManager(pair)
 
 
-	def __repr__(self):
-		return '{} - {} - {}'.format(self.time,
-									 self.status,
-									 self.price)
-	@property
-	def status(self):
-		return self._status
+    def __repr__(self):
+        return '{} - {} - {}'.format(self.time,
+                                     self.status,
+                                     self.price)
+    @property
+    def status(self):
+        return self._status
 
-	@status.setter
-	def status(self, value):
-		self._status = value
+    @status.setter
+    def status(self, value):
+        self._status = value
 
-	@property
-	def time(self):
-		return self._time
+    @property
+    def time(self):
+        return self._time
 
-	@time.setter
-	def time(self, value):
-		self._time = value
+    @time.setter
+    def time(self, value):
+        self._time = value
 
-	@property
-	def price(self):
-		return self._price
+    @property
+    def price(self):
+        return self._price
 
-	@price.setter
-	def price(self, value):
-		self._price = value
+    @price.setter
+    def price(self, value):
+        self._price = value
 
-	def notify(self):
+    def notify(self):
 
-		date = datetime.now().strftime(DATA_FORMAT)
-		if len(self.transactions[-1])==2:
-			msg = "{} - Entered {} position for {} at {}".format(date,
-																 self.status,
-																 self.pair,
-																 self.transaction_price[-1][1])
-		else:
-			gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
-					 /self.transaction_price[-1][1]
-			if 'Short' in self.status:
-				gain *= -1
+        date = datetime.now().strftime(DATA_FORMAT)
+        if len(self.transactions[-1])==2:
+            msg = "{} - Entered {} position for {} at {}".format(date,
+                                                                 self.status,
+                                                                 self.pair,
+                                                                 self.transaction_price[-1][1])
+        else:
+            gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
+                     /self.transaction_price[-1][1]
+            if 'Short' in self.status:
+                gain *= -1
 
-			msg = "{} - Closed {} position for {} at {} - ".format(date,
-																   self.status.split(' ')[1],
-																   self.pair,
-																   self.transaction_price[-1][1])
+            msg = "{} - Closed {} position for {} at {} - ".format(date,
+                                                                   self.status.split(' ')[1],
+                                                                   self.pair,
+                                                                   self.transaction_price[-1][1])
 
-		filename = '/home/ubuntu/trader-{}.log'.format(self.pair)
-		if not os.path.isfile(filename):
-			mode = 'w'
-		else:
-			mode = 'a'
+        filename = self.manager._home + '/trader-{}.log'.format(self.pair)
+        if not os.path.isfile(filename):
+            mode = 'w'
+        else:
+            mode = 'a'
+        with open(filename, mode) as f:
+            f.write(msg)
 
-		with open(filename, mode) as f:
-			f.write(msg)
+        logging.info(msg)
+        # post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
 
-		logging.info(msg)
-		post_message('cryptobot', msg, username='cryptobot', icon=':matrix:')
+    def update(self, last_signal):
 
-	def update(self, last_signal):
+        value = last_signal['signal'].iloc[-1]
+        price = last_signal[self.pair].iloc[-1]
+        timestamp = last_signal.index[-1].strftime("%Y-%m-%d %H:%M")
 
-		value = last_signal['signal'].iloc[-1]
-		price = last_signal[self.pair].iloc[-1]
-		timestamp = last_signal.index[-1].strftime("%Y-%m-%d %H:%M")
+        if ((self.status=='Started' or 'Close' in self.status) and value==1):
+            self.status = 'Long'
+            self.transactions.append(['Long', timestamp])
+            self.transaction_price.append(['Long', price])
+            event = True
 
-		if ((self.status=='Started' or 'Close' in self.status) and value==1):
-			self.status = 'Long'
-			self.transactions.append(['Long', timestamp])
-			self.transaction_price.append(['Long', price])
-			event = True
+        elif (self.status=='Long' and value==-1):
+            self.status = 'Close Long'
+            self.transactions[-1] += [timestamp]
+            self.transaction_price[-1] += [price]
+            event = True
 
-		elif (self.status=='Long' and value==-1):
-			self.status = 'Close Long'
-			self.transactions[-1] += [timestamp]
-			self.transaction_price[-1] += [price]
-			event = True
+        elif ((self.status=='Started' or 'Close' in self.status) and value==-1):
+            self.status = 'Short'
+            self.transactions.append(['Short', timestamp])
+            self.transaction_price.append(['Short', price])
+            event = True
 
-		elif ((self.status=='Started' or 'Close' in self.status) and value==-1):
-			self.status = 'Short'
-			self.transactions.append(['Short', timestamp])
-			self.transaction_price.append(['Short', price])
-			event = True
+        elif (self.status=='Short' and value==1):
+            self.status = 'Close Short'
+            self.transactions[-1] += [timestamp]
+            self.transaction_price[-1] += [price]
+            event = True
 
-		elif (self.status=='Short' and value==1):
-			self.status = 'Close Short'
-			self.transactions[-1] += [timestamp]
-			self.transaction_price[-1] += [price]
-			event = True
+        else:
+            event = False
 
-		else:
-			event = False
+        if event:
+            self.notify()
 
-		if event:
-			self.notify()
-
-		self.time = timestamp
-		self.price = price
+        self.time = timestamp
+        self.price = price

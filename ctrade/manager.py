@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ['Credentials', 'FileManager']
 
-DATA_FORMAT = "%Y-%m-%d_%H-%M"
+DATA_FORMAT = "%Y-%m-%d_%H.%M"
 
 AUTH = {
     'poloniex' :
@@ -46,7 +46,8 @@ class Credentials(object):
         self._service = service
         self._home = os.path.expanduser("~")
         self._credential_dir = os.path.join(self._home, '.credentials')
-        self._config_file = os.path.join(self._credential_dir, '{}'.format(service))
+        self._config_file = os.path.join(self._credential_dir,
+                                         '{}'.format(service))
         self.credentials = {}
         if not os.path.isdir(self._credential_dir):
             os.mkdir(self._credential_dir)
@@ -103,6 +104,7 @@ class Credentials(object):
 
         self.create_config_file(params)
 
+save_types = ['predictions', 'prediction_data']
 
 class FileManager(object):
 
@@ -121,29 +123,30 @@ class FileManager(object):
         if not os.path.isdir(self._data):
             os.mkdir(self._data)
 
-    def save(self, df, date, file_type='prediction'):
+    def save(self, df, save_type='predictions'):
+
+        date = datetime.now().strftime(DATA_FORMAT)
         df.to_pickle(self._data +
                      '/{}-{}-{}.pkl'.format(date,
-                                            file_type,
+                                            save_type,
                                             self._pair))
 
-    def last(self, file_type='prediction'):
+    def get_last(self, save_type='predictions'):
 
-        files = self.files(file_type=file_type)
-        file = sorted(files)[:-1]
+        files = self.files(save_type=save_type)
+        file = sorted(files)[-1]
         return pd.read_pickle(file)
 
-    def files(self, file_type='prediction'):
+    def files(self, save_type='predictions'):
         files = glob.glob(self._data +
-                          '/*{}-{}.pkl'.format(file_type,
+                          '/*{}-{}.pkl'.format(save_type,
                                                self._pair))
+        return sorted(files)
 
-        return files
-
-    def islast(self, file_type='prediction'):
-        files = self.files(file_type=file_type)
+    def islast(self, save_type='predictions'):
+        files = self.files(save_type=save_type)
         if len(files)>0:
-            date = files[-1].split('/')[-1].split('-'+file_type)[0]
+            date = files[-1].split('/')[-1].split('-'+save_type)[0]
             date = datetime.strptime(date, DATA_FORMAT)
             time_from_last = (datetime.now() - date).total_seconds()/60
             if time_from_last<100:
@@ -152,3 +155,13 @@ class FileManager(object):
                 return False
         else:
             return False
+
+    def clear(self):
+
+        for save_type in save_types:
+            files = self.files(save_type=save_type)
+            if len(files)>1:
+                for file in files[:-1]:
+                    os.remove(file)
+
+
