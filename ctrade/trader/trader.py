@@ -54,7 +54,7 @@ class Trading(object):
             df = self._pull_data(days, timeframe)
 
         self.manager.save(df, save_type='prediction_data')
-        self.manager.clear()
+        self.manager.clear(save_type='prediction_data')
         df[self.pair] = df['close']
 
         return df

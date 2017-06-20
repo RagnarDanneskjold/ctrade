@@ -97,6 +97,12 @@ class Poloniex(object):
     def complate_balance(self):
         return self.trading_api_query({'command': 'returnCompleteBalances'})
 
+    def available_balance(self):
+        return self.trading_api_query({'command': 'returnAvailableAccountBalances'})
+
+    def get_info(self):
+        return self.trading_api_query({'command': 'returnFeeInfo'})
+
     def trading_history(self, pair, days_back=0):
         if pair != 'all':
             pair = self._is_valid_pair(pair)
@@ -112,6 +118,12 @@ class Poloniex(object):
         return self.trading_api_query({'command': 'returnOpenOrders',
                                       'currencyPair': pair})
 
+    def get_margin_position(self, pair):
+        if pair != 'all':
+            pair = self._is_valid_pair(pair)
+        return self.trading_api_query({'command': 'getMarginPosition',
+                                      'currencyPair': pair})
+
     def buy(self, pair, rate, amount):
         return self.trading_api_query({'command': 'buy',
                                        'currencyPair': self._is_valid_pair(pair),
@@ -123,6 +135,22 @@ class Poloniex(object):
                                        'currencyPair': self._is_valid_pair(pair),
                                        'rate': rate,
                                        'amount': amount})
+
+    def margin_buy(self, pair, rate, amount):
+        return self.trading_api_query({'command': 'marginBuy',
+                                       'currencyPair': self._is_valid_pair(pair),
+                                       'rate': rate,
+                                       'amount': amount})
+
+    def margin_sell(self, pair, rate, amount):
+        return self.trading_api_query({'command': 'marginSell',
+                                       'currencyPair': self._is_valid_pair(pair),
+                                       'rate': rate,
+                                       'amount': amount})
+
+    def margin_close(self, pair, rate, amount):
+        return self.trading_api_query({'command': 'closeMarginPosition',
+                                       'currencyPair': self._is_valid_pair(pair)})
 
     def cancel(self, pair, order_number):
         return self.trading_api_query({'command': 'cancelOrder',
