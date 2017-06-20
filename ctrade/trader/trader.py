@@ -30,13 +30,13 @@ class Trading(object):
 
     def _pull_data(self, days, timeframe):
 
-        maxi = 0
-        while maxi < 20:
+        maxi = False
+        while not maxi:
             try:
                 df = self.polo.chart(self.pair, days, timeframe).df
-                maxi = 100
+                maxi = True
             except:
-                maxi += 1
+                time.spleep(10)
 
         df[self.pair] = df['close']
 
@@ -54,6 +54,7 @@ class Trading(object):
             df = self._pull_data(days, timeframe)
 
         self.manager.save(df, save_type='prediction_data')
+        self.manager.clear()
         df[self.pair] = df['close']
 
         return df
@@ -113,7 +114,7 @@ if __name__=='__main__':
     inputs = parser.parse_args()
     post_message('cryptobot',
     			 'STARTED TRADING {} USING MODEL...'.format(inputs.pair),
-    			 username='cryptobot'po,
+    			 username='cryptobot',
     			 icon=':matrix:')
 
     logging.info('Start trading')

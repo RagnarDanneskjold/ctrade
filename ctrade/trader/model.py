@@ -172,7 +172,6 @@ class Status(object):
 
         self.pair = pair
         self._status = 'Started'
-        self._time = None
         self._price = None
         self._time = None
         self.transactions = []
@@ -212,20 +211,22 @@ class Status(object):
 
         date = datetime.now().strftime(DATA_FORMAT)
         if len(self.transactions[-1])==2:
-            msg = "{} - Entered {} position for {} at {}".format(date,
+            msg = "{} - Entered {} position for {} at {}\n".format(date,
                                                                  self.status,
                                                                  format_pair(self.pair),
                                                                  self.transaction_price[-1][1])
         else:
             gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
-                     /self.transaction_price[-1][1]
+                     /self.transaction_price[-1][1]*100
+            gain = np.round(gain, 3)
             if 'Short' in self.status:
                 gain *= -1
 
-            msg = "{} - Closed {} position for {} at {} - ".format(date,
+            msg = "{} - Closed {} position for {} at {} - {:>7}\n".format(date,
                                                                    self.status.split(' ')[1],
                                                                    format_pair(self.pair),
-                                                                   self.transaction_price[-1][1])
+                                                                   self.transaction_price[-1][1],
+                                                                   gain)
 
         filename = self.manager._home + '/trader-{}.log'.format(self.pair)
         if not os.path.isfile(filename):

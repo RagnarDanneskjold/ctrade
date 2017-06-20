@@ -163,12 +163,18 @@ class FileManager(object):
         else:
             return False
 
-    def clear(self):
+    def clear(self, save_type=None):
 
-        for save_type in save_types:
+        if save_type is not None:
             files = self.files(save_type=save_type)
             if len(files)>1:
                 for file in files[:-1]:
                     os.remove(file)
+        else:
+            for save_type in save_types:
+                files = self.files(save_type=save_type)
+                if len(files)>1:
+                    for file in files[:-1]:
+                        os.remove(file)
 
 
