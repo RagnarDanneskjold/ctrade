@@ -65,7 +65,7 @@ class Trading(object):
         df = self._pull_data(days, timeframe)
 
         logging.info('Training the model')
-        self.m = Model(indicators, self.pair)
+        self.m = Model(self.indicators, self.pair)
         self.model  = StackModels(est)
 
         self.m.set_indicators()

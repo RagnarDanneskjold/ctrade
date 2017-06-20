@@ -31,7 +31,6 @@ class StackModels(object):
         
     def fit(self, X, Y):
 
-
         for icol,col in enumerate(Y.columns):
             self.factors.append(Y.iloc[:, icol].std())
             res = do_easy_crossval(self.estimator, X, Y[col]/self.factors[icol],
