@@ -32,6 +32,8 @@ def delta_inputs(delta):
 
     return inputs
 
+def format_pair(pair):
+    return '/'.join(pair.split('_')[::-1])
 
 CURRENCY_PAIRS = [
     'BTC_AMP',

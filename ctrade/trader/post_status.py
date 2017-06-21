@@ -1,4 +1,3 @@
-import time
 from ctrade import *
 from ctrade.messages import *
 from collections import OrderedDict

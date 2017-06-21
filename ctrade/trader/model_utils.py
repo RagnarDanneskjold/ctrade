@@ -13,7 +13,9 @@ def do_easy_crossval(estimator, X, Y, transformer=None, W=None,
     modeltype = ModelType(estimator)._modeltype
     Y_score = OrderedDict(); Yte = OrderedDict(); Y_pred = OrderedDict(); i=0
     Wte = OrderedDict()
-    crossval_prediction = pd.DataFrame(0, index=X.index, columns=['true', 'pred', 'proba'])
+    crossval_prediction = pd.DataFrame(0,
+                                       index=X.index,
+                                       columns=['true', 'pred', 'proba'])
     crossval_prediction['true'] = Y.values
     folds = 1
 
@@ -97,3 +99,38 @@ class ModelType(object):
             return DummyRegressor
         else:
             raise ValueError('Type not supported')
+
+
+class TargetRescaler(object):
+    def __init__(self):
+        self.mean = None
+        self.std = None
+        self.log = None
+        self.fitted = None
+
+    def transform(self, x, log=True):
+        _x = x.copy()
+        if log:
+            _x = np.log10(_x)
+            self.log = True
+        self.mean = np.mean(_x)
+        self.std = np.std(_x)
+        _x = (_x - self.mean) / self.std
+        self.fitted = True
+        if isinstance(x, pd.Series):
+            return pd.Series(_x, index=_x.index)
+        else:
+            return _x
+
+    def inverse(self, x):
+        _x = x.copy()
+        _x = (_x * self.std + self.mean)
+        if self.fitted is None:
+            raise AttributeError('transform method needs to be called first')
+        if self.log:
+            _x = 10 ** _x
+        if isinstance(x, pd.Series):
+            return pd.Series(_x, index=_x.index)
+        else:
+
+            return _x
