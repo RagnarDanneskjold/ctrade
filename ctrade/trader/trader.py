@@ -36,7 +36,7 @@ class Trading(object):
                 df = self.polo.chart(self.pair, days, timeframe).df
                 maxi = True
             except:
-                time.spleep(10)
+                time.sleep(10)
 
         df[self.pair] = df['close']
 

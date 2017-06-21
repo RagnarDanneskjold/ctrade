@@ -213,7 +213,7 @@ class Status(object):
             msg = "{} - Entered {} position for {} at {}\n".format(date,
                                                                  self.status,
                                                                  format_pair(self.pair),
-                                                                 self.transaction_price[-1][1])
+                                                                 self.transaction_price[-1][2])
         else:
             gain =  (self.transaction_price[-1][2] - self.transaction_price[-1][1])\
                      /self.transaction_price[-1][1]*100
@@ -224,7 +224,7 @@ class Status(object):
             msg = "{} - Closed {} position for {} at {} - {:>7}\n".format(date,
                                                                    self.status.split(' ')[1],
                                                                    format_pair(self.pair),
-                                                                   self.transaction_price[-1][1],
+                                                                   self.transaction_price[-1][2],
                                                                    gain)
 
         filename = self.manager._home + '/trader-{}.log'.format(self.pair)
